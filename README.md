@@ -17,7 +17,11 @@ Send inReach positions to APRSIS
 ## Theory
 
 Take KML payload for past 60 minutes https://share.delorme.com/feed/share/JoeTester?d1=2018-08-21T10:00Z&d2=2018-08-21T11:00Z
+
 Load KML items into cache
+
 Publish positions to APRSIS, mark in cache
+
 Receiver marks APRSIS repeated packets for delete
+
 GC deletes positions from cache beyond KML payload window with recieved by APRSIS marks
