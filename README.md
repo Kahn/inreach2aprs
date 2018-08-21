@@ -20,7 +20,7 @@ Take KML payload for past 60 minutes https://share.delorme.com/feed/share/JoeTes
 
 Load KML items into cache
 
-Publish positions to APRSIS, mark in cache
+Publish positions to APRSIS, mark in cache. Use SSID-6 for APRS via Sat (fight me, what else is iridium).
 
 Receiver marks APRSIS repeated packets for delete
 
