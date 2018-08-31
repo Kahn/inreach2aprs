@@ -13,6 +13,7 @@ import requests
 from pykml import parser as kmlparser
 from urllib.parse import urlparse
 from io import BytesIO
+import sqlite3
 
 parser = argparse.ArgumentParser(description='inreach2aprs')
 # default=os.environ.get('I2A', None)
@@ -30,6 +31,18 @@ if not args.aprs_callsign:
 pp = pprint.PrettyPrinter()
 o = urlparse(args.mapshare_url)
 # print(o.path.strip("/"), args.mapshare_password)
+
+try:
+    conn = sqlite3.connect('inreach2aprs.db')
+    c = conn.cursor()
+    c.execute("CREATE TABLE positions (callsign text, ts text, lat text, long text)")
+    conn.commit()
+except sqlite3.OperationalError:
+    print("INFO: Database already exists and is initialised")
+except:
+    print("Unexpected error:", sys.exc_info()[0])
+    raise
+
 
 try:
     r = requests.get(args.mapshare_url, auth=(o.path.strip("/"), args.mapshare_password))
@@ -85,13 +98,40 @@ try:
 except AssertionError:
     print("Position report values exceed specification length")
 
-position_report = args.aprs_callsign + args.aprs_ssid + ">"+ "APZ001,TCPIP*:/" + aprs_timestamp + aprs_lat + "/" + aprs_lon + "Sinreach2aprs-0.0.1"
-# pp.pprint(aprslib.parse(position_report))
+position_report = args.aprs_callsign + args.aprs_ssid + ">"+ "APZ001,TCPIP*:/" + aprs_timestamp + aprs_lat + "/" + aprs_lon + "Sinreach2aprs-0.0.2"
 
-try:
-    AIS = aprslib.IS(args.aprs_callsign, passwd=args.aprs_password, port=14580)
-    AIS.connect()
-    AIS.sendall(position_report)
-except:
-    print("Unexpected error:", sys.exc_info()[0])
-    raise
+params = (args.aprs_callsign + args.aprs_ssid,aprs_timestamp,aprs_lat,aprs_lon)
+c.execute(
+    "SELECT * FROM positions WHERE callsign=? AND ts=? AND lat=? AND long=?", params
+)
+
+if c.fetchone() == None:
+    # (?, ?)", (who, age)
+    params = (args.aprs_callsign + args.aprs_ssid, aprs_timestamp, aprs_lat, aprs_lon)
+    pp.pprint(params)
+    c.execute(
+        """insert into positions values (?,?,?,?)""", params
+    )
+    try:
+        AIS = aprslib.IS(args.aprs_callsign, passwd=args.aprs_password, port=14580)
+        AIS.connect()
+        AIS.sendall(position_report)
+        sent = True
+    except:
+        print("Unexpected error:", sys.exc_info()[0])
+        raise
+
+    if sent:
+        conn.commit()
+        print("INFO: Sent packet \n")
+        pp.pprint(aprslib.parse(position_report))
+        conn.close()
+        sys.exit(0)
+    else:
+        print("ERROR: Sending packet failed")
+        sys.exit(1)
+
+else:
+    print("WARN: Not sending duplicate report")
+    pp.pprint(aprslib.parse(position_report))
+    sys.exit(1)
